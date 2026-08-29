@@ -90,25 +90,58 @@ End If
 ---
 
 ### 2. 即時狀態連動與日期戳記 (Event-Driven Auto-Date Stamp)
-* **對應模組**：`Workbook_SheetChange.cls`
-* **功能描述**：透過 Excel 全域事件監聽，實現無感自動化資料登錄，減少 HR 人為輸入負擔。
+* **對應檔案**：`Workbook_SheetChange.cls` (ThisWorkbook)
+* **功能描述**：透過活頁簿層級的事件監聽器 (`Workbook_SheetChange`)，在背景即時捕捉關鍵法規文件的狀態變更，實現「零人工作業感 (Zero-touch)」的自動押期與動態清除，杜絕手動輸入日期的時間誤差與人為遺漏。
 * **自動化亮點**：
-  * **良民證與健檢追蹤**：當 HR 於主檔將狀態下拉更改為「已收」時，系統瞬間於相鄰欄位自動押上「今日日期」(`Date`)。
-  * **防錯防呆機制**：若狀態被改回「未交」、「不適用」或清空，系統會自動清除繳交日期。內建 `CountLarge` 門檻，防止大量貼上資料時造成系統當機。
+  * **雙向狀態與時間感知 (Bidirectional State Sync)**：精準監控良民證 (R 欄) 與健檢報告 (X 欄)。當狀態選擇為「已收」時，自動於相鄰欄位 (S/Y 欄) 押上當日系統日期 (`Date`)；若狀態被改回「未交」、「不適用」或清空，則自動同步清空日期 (`ClearContents`)，維持資料庫乾淨度。
+  * **遞迴死循環防護 (Recursion & Event Control)**：在寫入日期前強制關閉事件監聽 (`Application.EnableEvents = False`)，處理完成後立即重啟，避免自身寫入操作重複觸發 Change 事件導致無窮迴圈與當機。
+  * **大批次貼上防崩潰 (Batch Edit Protection)**：加入 `Target.CountLarge > 100` 門檻判斷，當使用者進行整列刪除或大範圍跨欄貼上時自動略過監聽，防止記憶體超載造成 Excel 凍結。
+  * **分頁衝突隔離 (Sheet Isolation)**：主動排除自動產出的報表分頁（如 HSE 健檢報件表、良民證報件表、逾期未交清單），避免報表生成時與主檔監聽邏輯產生衝突。
+  * **全域容錯恢復機制 (Resilient Error Handling)**：內建 `ErrorHandler` 機制，即便程式遭遇不可預期的執行錯誤，也能確保強制恢復 `EnableEvents = True`，避免 Excel 永久失去背景監聽功能。
 
 ```vba
-' 核心片段：監控特定欄位異動並自動寫入/清除時間戳記
-If Not Intersect(Target, Sh.Range("R:R")) Is Nothing Then
-    Application.EnableEvents = False ' 暫停事件監聽，防止無限迴圈
-    For Each cell In Intersect(Target, Sh.Range("R:R"))
-        If cell.Value = "已收" Then
-            cell.Offset(0, 1).Value = Date ' 自動押上當日時間戳記
-        ElseIf cell.Value = "未交" Or cell.Value = "不適用" Or cell.Value = "" Then
-            cell.Offset(0, 1).ClearContents
-        End If
-    Next cell
-    Application.EnableEvents = True 
-End If
+' 核心片段：全域事件監聽、防卡死門檻與雙向日期戳記邏輯
+Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
+    ' 1. 排除動態產出之報表分頁，避免事件衝突
+    If Sh.Name = "HSE_健檢報件表" Or Sh.Name = "良民證報件表" Or Sh.Name = "逾期未交清單" Then Exit Sub
+    
+    ' 2. 大量異動防護 (超過 100 格略過，防止貼上時當機)
+    If Target.CountLarge > 100 Then Exit Sub
+    
+    Dim cell As Range
+    On Error GoTo ErrorHandler ' 防錯處理：確保不慎中斷也能恢復監聽
+    
+    ' 3. --- 良民證模組：監控 R 欄，於 S 欄寫入/清除日期 ---
+    If Not Intersect(Target, Sh.Range("R:R")) Is Nothing Then
+        Application.EnableEvents = False ' 暫停事件，防止無限遞迴
+        For Each cell In Intersect(Target, Sh.Range("R:R"))
+            If cell.Value = "已收" Then
+                cell.Offset(0, 1).Value = Date
+            ElseIf cell.Value = "未交" Or cell.Value = "不適用" Or cell.Value = "" Then
+                cell.Offset(0, 1).ClearContents
+            End If
+        Next cell
+        Application.EnableEvents = True
+    End If
+
+    ' 4. --- 健檢報告模組：監控 X 欄，於 Y 欄寫入/清除日期 ---
+    If Not Intersect(Target, Sh.Range("X:X")) Is Nothing Then
+        Application.EnableEvents = False
+        For Each cell In Intersect(Target, Sh.Range("X:X"))
+            If cell.Value = "已收" Then
+                cell.Offset(0, 1).Value = Date
+            ElseIf cell.Value = "未交" Or cell.Value = "不適用" Or cell.Value = "" Then
+                cell.Offset(0, 1).ClearContents
+            End If
+        Next cell
+        Application.EnableEvents = True
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    Application.EnableEvents = True ' 強制重啟事件監聽
+End Sub
 ```
 
 ---

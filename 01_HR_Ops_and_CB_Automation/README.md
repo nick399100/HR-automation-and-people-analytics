@@ -1,48 +1,71 @@
-# 🚀 HR Onboarding & Compliance Automation System (VBA)
-**人事報到追蹤與 HSE 跨部門協作自動化系統**
+# 📝 專案概述 (Project Overview)
+本專案旨在透過 Excel VBA 打造全自動化的人事營運 (HR Ops) 與合規追蹤系統。專案核心解決了大型企業或多廠區 (Multi-site) 在處理員工入職合規 (Onboarding Compliance)、健康與安全 (HSE) 體檢追蹤、以及人事資料庫 (Master Data) 同步時面臨的繁瑣手動比對與人工登錄錯誤。
 
-## 📖 專案概述 (Project Overview)
-在大型跨國企業的快節奏營運中，新進員工的合規文件（如良民證、健檢報告）繳交進度若僅依賴人工在 Excel 打勾記錄，將面臨極大的管理盲區與勞基法規風險。
-本專案透過 **Excel VBA** 與 **事件驅動邏輯 (Event-driven Programming)**，將靜態表單升級為具備「狀態感知」與「時間戳記」的自動化追蹤系統，徹底解決 HRIS 系統名單同步、跨部門交接與合規稽核的營運痛點。
+透過此自動化模組，HR 團隊能一鍵完成從資料同步、狀態連動到產出各類稽核報表的端到端 (End-to-End) 流程，大幅提升人事資料的準確度與管理效率。
 
 ---
 
-## ⚠️ 商業痛點 (Business Pain Points)
-1. **合規紅線風險**：過去缺乏文件繳交的「時間維度」，難以精準追蹤「已報到滿 30 天但尚未補齊法規文件」的高風險名單。
-2. **跨部門交接無效率**：良民證與健檢報告需交接給 HSE（職安衛）部門，手動篩選耗時且極易遺漏。
-3. **資料庫更新繁瑣**：每次有新進員工，HR 需手動核對 HRIS 匯出名單，逐筆建檔並初始化繳交狀態。
+## 🛠️ 系統架構與工作表 (System Architecture)
+*   `StaffTable`：人事主資料表 (Master Data)，存放所有員工的在職狀態、合規文件繳交進度與個人資訊。
+*   `Download`：由 HRIS 系統匯出之原始異動資料檔。
+*   **VBA 模組**：包含 4 個報表與資料處理模組 (Modules)，以及 1 個活頁簿事件監聽模組 (Workbook Event)。
 
 ---
 
-## 🎯 系統架構與核心功能 (Features & Architecture)
+## 🚀 核心功能模組 (Core Features)
 
-![UI介面](image_9758c3.png)
-*(預留說明：若圖片已上傳至同資料夾，上方語法即可直接顯示圖片)*
+### 1. 人事主檔智能同步模組 (Staff List Synchronization)
+**檔案/模組**：`SyncStaffList`
+*   **功能描述**：比對 `Download` 原始檔與 `StaffTable` 主檔，自動識別「新進員工」與「既有員工異動」。
+*   **自動化亮點**：
+    *   **新進員工建檔**：自動帶入基本資料，並初始化超過 10 個以上的合規追蹤欄位狀態為「未交」或「待處理」。
+    *   **公式與格式繼承**：自動向下複製下拉選單資料驗證 (Data Validation)、條件格式以及隱藏的計算公式（如：入職合規檢核、站點判斷、員編排序）。
+    *   **離職狀態判定**：根據是否有離職日期，自動切換在職/離職狀態。
 
-本系統設計了專屬的 UI 功能區，實現以下四大核心功能：
-* **🔄 HRIS 智能同步**：自動比對新舊名單，新進人員自動建檔並預設「未交」，既有員工僅更新異動資訊。
-* **⏱️ 隱形時間戳記 (Event Listener)**：運用底層事件監聽，當狀態切換為「已收」時，系統瞬間自動押上日期，完全防呆。
-* **📤 一鍵跨部門報件**：自動篩選「待處理」狀態，產出標準化 HSE / 良民證交接報表，並透過關鍵字判定職務屬性（Operator）。
-* **🚨 30 天合規稽核**：自動結算滿 30 天未完成繳交的異常清單，並依據廠區 (Site) 自動分群排序。
+### 2. 即時狀態連動與日期戳記 (Event-Driven Auto-Date Stamp)
+**檔案/模組**：`Workbook_SheetChange`
+*   **功能描述**：透過 Excel 事件監聽，實現無感自動化資料登錄，減少 HR 人為輸入負擔。
+*   **自動化亮點**：
+    *   **良民證與健檢追蹤**：當 HR 於主檔將狀態下拉更改為「已收」時，系統瞬間於相鄰欄位自動押上「今日日期」 (Date)。
+    *   **防錯防呆**：若狀態被改回「未交」、「不適用」或清空，系統會自動清除繳交日期。同時內建 `CountLarge` 限制，防止大量貼上資料時造成系統當機。
+
+### 3. 新人入職 30 天合規催繳報表 (30-Days Missing Document Report)
+**檔案/模組**：`Export_30Days_MissingReport`
+*   **功能描述**：針對入職滿 30 天且文件未齊全的在職人員，自動產出各站點的催繳清單。
+*   **自動化亮點**：
+    *   **動態條件篩選**：結合「在職」、「文件未齊」、「年資 ≥ 30天」進行精準攔截。
+    *   **法律紅線缺件字串重組**：自動掃描 10 項關鍵文件（合約、身分證、銀行帳戶、學歷、良民證、利益衝突、資安、保密書、健檢、扶養親屬），並將缺交項目重組成易讀的字串（如："合約, 良民證, 健檢報告"）。
+    *   **視覺化分組**：報表依據「站點 (Site)」進行自動排序與視覺化分層（自動插入藍色底色合併儲存格作為站點標題），便於各區 HR 夥伴對接。
+
+### 4. HSE 入職健檢報件系統 (HSE Health Check Dispatch)
+**檔案/模組**：`Export_HSE_Report`
+*   **功能描述**：為職安衛 (HSE) 單位自動產出新進員工體檢追蹤名單，符合法規申報格式。
+*   **自動化亮點**：
+    *   **高危職務自動標記**：透過字串比對 (InStr) 識別職稱是否包含 "Operator"，並自動打勾 (V / X)。
+    *   **證照與風險警示**：自動抓取「堆高機證照」並以紅色醒目標示；若員工於申報期間已離職，整列自動標記為黃底警告。
+    *   **狀態推進**：報表產出後，自動將主檔狀態由「待處理」更新為「已發送」，形成完整的閉環管理。
+
+### 5. 良民證繳交稽核概況 (Police Record Compliance Audit)
+**檔案/模組**：`Export_PoliceRecord_Compliance_Report`
+*   **功能描述**：一鍵產出全公司背景調查 (Background Check) 文件的合規狀態總覽。
+*   **自動化亮點**：
+    *   **優先順序重排**：打破原有人事大表的排序，強制將「【未交/催繳】」人員拉至報表最上方並標示為紅色字體，而「【已完成】」人員則列於下方，提升稽核直覺性。
+    *   **模組化代碼設計**：將填表邏輯獨立拆分為 `FillData` 副程式，保持主程式碼的整潔與易維護性。
 
 ---
 
-## 💻 核心邏輯展示 (Core Code Snippets)
-> **💡 Note:** 此處僅展示最具代表性的系統底層邏輯。完整的原始碼與效能優化細節，請參閱本資料夾內的 `.bas` 模組檔案。
+## 📈 商業價值與效益 (Business Impact)
+1.  **消除人為疏漏 (Error Reduction)**：透過防呆機制與自動化初始化，避免新進員工建檔時漏填合規追蹤欄位，確保 100% 的追蹤覆蓋率。
+2.  **法遵風險管控 (Compliance Management)**：精準抓取「滿 30 天未交齊」及  HSE 特殊身份（操作員/堆高機），大幅降低企業面臨的勞檢與工安合規風險。
+3.  **工時節省 (Time-Saving)**：原先需耗時數小時跨表比對 (VLOOKUP)、手動上色與篩選的例行公事，縮短至 **單擊按鈕 (1-Click) 內完成**，讓 HR 團隊能專注於更具戰略價值的人才管理工作。
 
-### 1. 狀態改變觸發時間戳記 (Event-Driven Timestamps)
-捨棄人工輸入日期，利用 `Workbook_SheetChange` 建立背景監聽，確保合規稽核的時間點絕對準確，並寫入防呆機制避免無限迴圈。
+---
 
-```vba
-' 監控良民證狀態 (R 欄)，狀態為"已收"時自動於 S 欄填入日期
-If Not Intersect(Target, Sh.Range("R:R")) Is Nothing Then
-    Application.EnableEvents = False ' 暫停監聽，防止資源耗盡
-    For Each cell In Intersect(Target, Sh.Range("R:R"))
-        If cell.Value = "已收" Then
-            cell.Offset(0, 1).Value = Date 
-        ElseIf cell.Value = "未交" Or cell.Value = "不適用" Or cell.Value = "" Then
-            cell.Offset(0, 1).ClearContents
-        End If
-    Next cell
-    Application.EnableEvents = True 
-End If
+## 💻 技術堆疊 (Tech Stack)
+*   **語言**：VBA (Visual Basic for Applications)
+*   **運用技巧**：
+    *   動態陣列與迴圈處理 (Dynamic Ranges & Loops)
+    *   工作表事件監聽 (Worksheet_Change Events)
+    *   資料清理與字串處理 (Data Cleansing & String Manipulation)
+    *   條件式格式自動化 (Automated UI/UX Formatting)
+    *   防呆與錯誤處理機制 (Error Handling & MsgBox Validations)

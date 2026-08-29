@@ -31,42 +31,62 @@
 ## 🚀 核心功能模組與程式碼展示 (Core Features & Code Highlights)
 
 ### 1. 人事主檔智能同步模組 (Staff List Synchronization)
-* **對應模組**：`SyncStaffList.bas`
-* **功能描述**：比對 `Download` 原始檔與 `StaffTable` 主檔，自動識別「新進員工」與「既有員工異動」。
+* **對應檔案**：`SyncStaffList.bas` (Module2)
+* **功能描述**：比對 `Download` 工作表（HRIS 匯出原始檔）與 `StaffTable`（人事主資料庫），以「員工編號」為 Key 進行全自動分流處理，精準識別「新進員工建檔」與「既有員工異動更新」。
 * **自動化亮點**：
-  * **新進員工建檔**：自動帶入基本資料，並初始化超過 10 個以上的合規追蹤欄位狀態為「未交」或「待處理」。
-  * **公式與格式繼承**：自動向下複製下拉選單資料驗證 (Data Validation)、條件格式以及計算公式（入職合規檢核、站點判斷、員編排序）。
-  * **離職狀態判定**：根據是否有離職日期，自動切換在職/離職狀態。
+  * **智能分流與狀態初始化**：新進員工自動搬移基本資料 (A~K 欄)，批次將 10 項以上合規追蹤欄位 (M~R, U~X, AB~AE 欄) 預設為「未交」，並將報件紀錄 (T, Z 欄) 初始化為「待處理」。
+  * **格式與公式動態繼承**：自動複製並延伸關鍵計算公式（AF 欄入職合規、AG 欄站點、AH 欄員編排序），並透過 `xlPasteValidation` 與 `xlPasteFormats` 完整繼承下拉選單資料驗證與條件格式。
+  * **在職狀態智能判定**：依據第 11 欄（離職日期）是否存在數值，自動判定並寫入在職狀態（「在職」或「離職」）。
+  * **效能優化與防錯設計**：批次處理前關閉螢幕更新 (`ScreenUpdating = False`) 與自動重算 (`xlCalculationManual`)，並加入 `ErrorHandler` 與防呆確認視窗，執行完畢後精確回報新進與更新筆數。
 
 ```vba
-' 核心片段：新舊員工分流比對與格式自動繼承
+' 核心片段：SyncStaffList 智能分流與格式自動繼承邏輯
 matchRow = Application.Match(wsDown.Cells(i, "A").Value, wsMaster.Columns("A"), 0)
 
 If IsError(matchRow) Then
+    ' =================================================================
     ' --- A. 處理新進員工 ---
+    ' =================================================================
     lastRowMaster = wsMaster.Cells(wsMaster.Rows.Count, "A").End(xlUp).Row + 1
+    
+    ' 1. 搬運基本資料 (A~K 欄) 並自動判定在職狀態 (L 欄)
     For col = 1 To 11
         wsMaster.Cells(lastRowMaster, col).Value = wsDown.Cells(i, col).Value
     Next col
+    wsMaster.Cells(lastRowMaster, 12).Value = IIf(wsDown.Cells(i, 11).Value <> "", "離職", "在職")
     
-    ' 初始化合規欄位
+    ' 2. 批次初始化「未交」與「待處理」狀態
     wsMaster.Range("M" & lastRowMaster & ":R" & lastRowMaster).Value = "未交"
+    wsMaster.Range("U" & lastRowMaster & ":X" & lastRowMaster).Value = "未交"
+    wsMaster.Range("AB" & lastRowMaster & ":AE" & lastRowMaster).Value = "未交"
     wsMaster.Cells(lastRowMaster, "T").Value = "待處理"
+    wsMaster.Cells(lastRowMaster, "Z").Value = "待處理"
     
-    ' 繼承公式與下拉選單格式
+    ' 3. 動態繼承公式 (AF 入職合規, AG 站點, AH 員編排序)
     wsMaster.Cells(2, "AF").Copy Destination:=wsMaster.Cells(lastRowMaster, "AF")
+    wsMaster.Cells(2, "AG").Copy Destination:=wsMaster.Cells(lastRowMaster, "AG")
+    wsMaster.Cells(2, "AH").Copy Destination:=wsMaster.Cells(lastRowMaster, "AH")
+    
+    ' 4. 繼承格式與下拉選單資料驗證 (Data Validation)
     wsMaster.Rows(2).Copy
     wsMaster.Rows(lastRowMaster).PasteSpecial Paste:=xlPasteFormats
     wsMaster.Range("M2:AE2").Copy
     wsMaster.Range("M" & lastRowMaster & ":AE" & lastRowMaster).PasteSpecial Paste:=xlPasteValidation
+    
+    newCount = newCount + 1
 Else
-    ' --- B. 處理既有員工 (更新資訊) ---
+    ' =================================================================
+    ' --- B. 處理既有員工 (僅更新異動欄位) ---
+    ' =================================================================
     For col = 6 To 11
         wsMaster.Cells(matchRow, col).Value = wsDown.Cells(i, col).Value
     Next col
+    
+    If wsDown.Cells(i, 11).Value <> "" Then wsMaster.Cells(matchRow, 12).Value = "離職"
+    
+    updateCount = updateCount + 1
 End If
 ```
-
 ---
 
 ### 2. 即時狀態連動與日期戳記 (Event-Driven Auto-Date Stamp)

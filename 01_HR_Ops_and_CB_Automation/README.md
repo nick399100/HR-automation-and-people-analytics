@@ -211,13 +211,53 @@ Next i
 ---
 
 ### 4. HSE 入職健檢報件系統 (HSE Health Check Dispatch)
-* **對應模組**：`Export_HSE_Report.bas`
-* **功能描述**：為職安衛 (HSE) 單位自動產出新進員工體檢追蹤名單，符合法規申報格式。
+* **對應檔案**：`Export_HSE_Report.bas` (Module1)
+* **功能描述**：專門為職安衛 (HSE) 團隊打造之自動化報件工具。自動自人事主檔中過濾「待處理」且「已收健檢報告」的新進名單，一鍵生成符合法規申報規格的標準化報件清單。
 * **自動化亮點**：
-  * **高危職務自動標記**：透過字串比對 (`InStr`) 識別職稱是否包含 `"Operator"`，並自動標記 `V / X`。
-  * **證照與風險警示**：自動抓取「堆高機證照」並以紅色醒目標示；若員工於申報期間已離職，整列自動標記為黃底警告。
-  * **狀態推進**：報表產出後，自動將主檔狀態由「待處理」更新為「已發送」，形成管理閉環。
+  * **高風險/現場作業員智能識別 (Role-Based Tagging)**：利用 `InStr` 進行不區分大小寫的字串匹配 (`vbTextCompare`)，自動判定職稱 (第 10 欄) 是否包含 `"operator"`，並於專屬欄位自動標記 `V / X`，輔助 HSE 精準鎖定特殊健檢對象。
+  * **雙重風險視覺化警示 (Dual-Layer Visual Alerts)**：
+    * **離職高風險標記**：若新進人員於申報前已有離職日期 (第 11 欄)，系統自動將該資料列標記為全列螢光黃底 (`vbYellow`)，防止無效申報。
+    * **特殊證照醒目標註**：自動檢核堆高機證照 (第 27 欄)，有證照者於備註欄以深紅色字體 (`RGB(200, 0, 0)`) 標註，強化工安列管。
+  * **狀態推進與閉環管理 (State Progression & Closed-Loop)**：報表生成成功後，程式即時反寫人事主檔之報件狀態欄位（Z 欄由「待處理」更新為「已發送」），徹底避免重複報件或漏報。
+  * **動態工作表重建與格式化 (Dynamic Template Generation)**：執行前自動重置並重建 `HSE_報件表` 工作表，自動繪製合併標題、格線、欄寬自適應 (`AutoFit`)，並針對特定欄位（如 Operator 欄）微調欄寬以達最佳視覺化呈現。
 
+```vba
+' 核心片段：HSE 條件過濾、高危職務判定、異常視覺標記與狀態閉環反寫
+For i = 2 To lastRow
+    ' 篩選條件：Z 欄(26) = "待處理" 且 Y 欄(25) 已有繳交日期
+    If Trim(wsMaster.Cells(i, 26).Value) = "待處理" And wsMaster.Cells(i, 25).Value <> "" Then
+        
+        ' 1. 填入基礎個人資料
+        wsRep.Cells(rRow, 1).Value = wsMaster.Cells(i, 1).Value   ' 員編
+        wsRep.Cells(rRow, 2).Value = wsMaster.Cells(i, 2).Value   ' 姓名
+        wsRep.Cells(rRow, 3).Value = wsMaster.Cells(i, 5).Value   ' 入職日期
+        wsRep.Cells(rRow, 4).Value = wsMaster.Cells(i, 7).Value   ' 部門
+        
+        ' 2. 判定 Operator 職務屬性
+        If InStr(1, wsMaster.Cells(i, 10).Value, "operator", vbTextCompare) > 0 Then
+            wsRep.Cells(rRow, 5).Value = "V"
+        Else
+            wsRep.Cells(rRow, 5).Value = "X"
+        End If
+        
+        ' 3. 風險警示 1：離職人員整列標示黃底警告
+        If wsMaster.Cells(i, 11).Value <> "" Then
+            wsRep.Range("A" & rRow & ":H" & rRow).Interior.Color = vbYellow
+        End If
+        
+        ' 4. 風險警示 2：堆高機證照深紅字體提醒
+        If wsMaster.Cells(i, 27).Value = "有" Then
+            wsRep.Cells(rRow, 8).Value = "堆高機證照"
+            wsRep.Cells(rRow, 8).Font.Color = RGB(200, 0, 0)
+        End If
+
+        ' 5. 主檔狀態閉環推進：標記為已發送
+        wsMaster.Cells(i, 26).Value = "已發送"
+        wsRep.Range("A" & rRow & ":H" & rRow).Borders.LineStyle = xlContinuous
+        rRow = rRow + 1
+    End If
+Next i
+```
 ---
 
 ### 5. 良民證繳交稽核概況 (Police Record Compliance Audit)

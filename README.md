@@ -21,14 +21,6 @@ Explore my case studies below. Each module contains a detailed design journey, b
 * **Highlights:** Automated onboarding tracking, inter-departmental HSE reporting, and event-driven compliance auditing using VBA & Macros.
 * **Impact:** Reduced 30-day compliance audit time from hours to seconds; achieved 100% accuracy in cross-departmental data handovers.
 
-#### ⏳ [Module 2: Workforce & OE Analytics (科技客戶工時與合規分析) - *Work In Progress*]
-* **Focus:** Overtime compliance monitoring and Operational Efficiency (OE) workforce allocation for top-tier tech clients using Power Query and DAX.
-
-#### ⏳ [Module 3: Spatial & HSE Analytics (空間運算與職工健康預警) - *Work In Progress*]
-* **Focus:** Employee commute distance calculation (Lat/Long APIs) for site relocation impact, and automated high-risk employee targeting for the HSE nursing team.
-
-#### ⏳ [Module 4: HR Executive Dashboard & Data Governance (高階戰情室與數據脫敏) - *Work In Progress*]
-* **Focus:** Non-reversible ID masking algorithms for data privacy and the final Power BI HR Executive Dashboard integration.
 
 ---
 📫 **Connect with me:** [My LinkedIn Profile](https://www.linkedin.com/in/nick-chen-66a43a2a3)

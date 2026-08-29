@@ -1,4 +1,4 @@
-# HR Onboarding & Compliance Automation System
+# 🚀 HR Onboarding & Compliance Automation System
 **全自動化人事營運 (HR Ops) 與合規追蹤系統**
 
 ---
@@ -10,10 +10,23 @@
 
 ---
 
-## 🛠️ 系統架構與工作表 (System Architecture)
-* **`StaffTable`**：人事主資料表 (Master Data)，存放所有員工的在職狀態、合規文件繳交進度與個人資訊。
+## 🖥️ 系統介面與使用者體驗 (User Interface & Experience)
+為降低第一線 HR 夥伴的操作門檻，本專案將後端複雜的演算法與資料清洗邏輯封裝至 **Excel 自訂功能區 (Custom Ribbon UI)**。使用者無須手動執行巨集或跨表比對，點擊單一按鈕即可驅動端到端自動化：
+
+<p align="center">
+  <img src="assets/custom_ribbon_ui.png" alt="Excel 自訂功能區 - 一鍵報件系統" width="480">
+  <br>
+  <em>圖 1：自訂 Excel Ribbon 功能區 — 整合「名單同步」、「報件產出」與「合規催繳」之一鍵操作介面</em>
+</p>
+
+---
+
+## 🛠️ 系統架構與資料流 (System Architecture & Data Flow)
+
+* **`StaffTable`**：人事主資料表 (Master Data)，存放所有員工的在職狀態、合規文件繳交進度、時間戳記與個人資訊。
 * **`Download`**：由 HRIS 系統匯出之原始異動資料檔。
 * **VBA 核心模組**：包含 4 個獨立業務報表/處理模組 (`.bas`)，以及 1 個全域事件監聽模組 (`.cls`)。
+
 ```mermaid
 graph TD
     A["HRIS 系統原始名單 Download"] -->|"1. SyncStaffList 智能分流"| B[("StaffTable 人事主資料庫")]
@@ -24,6 +37,7 @@ graph TD
     B -->|"4. Export_HSE_Report"| E["🏥 HSE 健檢報件表 (高危職務標記+黃底警告)"]
     B -->|"5. Export_PoliceRecord_Compliance"| F["🛡️ 良民證概況表 (未交置頂+兩階段排序)"]
 ```
+
 ---
 
 ## 💻 技術堆疊 (Tech Stack)
@@ -96,6 +110,7 @@ Else
     updateCount = updateCount + 1
 End If
 ```
+
 ---
 
 ### 2. 即時狀態連動與日期戳記 (Event-Driven Auto-Date Stamp)
@@ -105,8 +120,13 @@ End If
   * **雙向狀態與時間感知 (Bidirectional State Sync)**：精準監控良民證 (R 欄) 與健檢報告 (X 欄)。當狀態選擇為「已收」時，自動於相鄰欄位 (S/Y 欄) 押上當日系統日期 (`Date`)；若狀態被改回「未交」、「不適用」或清空，則自動同步清空日期 (`ClearContents`)，維持資料庫乾淨度。
   * **遞迴死循環防護 (Recursion & Event Control)**：在寫入日期前強制關閉事件監聽 (`Application.EnableEvents = False`)，處理完成後立即重啟，避免自身寫入操作重複觸發 Change 事件導致無窮迴圈與當機。
   * **大批次貼上防崩潰 (Batch Edit Protection)**：加入 `Target.CountLarge > 100` 門檻判斷，當使用者進行整列刪除或大範圍跨欄貼上時自動略過監聽，防止記憶體超載造成 Excel 凍結。
-  * **分頁衝突隔離 (Sheet Isolation)**：主動排除自動產出的報表分頁（如 HSE 健檢報件表、良民證報件表、逾期未交清單），避免報表生成時與主檔監聽邏輯產生衝突。
-  * **全域容錯恢復機制 (Resilient Error Handling)**：內建 `ErrorHandler` 機制，即便程式遭遇不可預期的執行錯誤，也能確保強制恢復 `EnableEvents = True`，避免 Excel 永久失去背景監聽功能。
+  * **全域容錯恢復機制 (Resilient Error Handling)**：內建 `ErrorHandler` 機制，即便程式遭遇不可預期的執行錯誤，也能確保強制恢復 `EnableEvents = True`。
+
+<p align="center">
+  <img src="assets/master_data_table.png" alt="人事主資料庫與條件格式示意圖" width="900">
+  <br>
+  <em>圖 2：人事主資料庫實機畫面 — 綠色/紅色狀態視覺化標籤、自動帶入之繳交日期戳記與入職合規即時檢核狀態</em>
+</p>
 
 ```vba
 ' 核心片段：全域事件監聽、防卡死門檻與雙向日期戳記邏輯
@@ -160,10 +180,8 @@ End Sub
 * **功能描述**：針對入職滿 30 天且文件尚未齊全的在職人員，自動生成依「廠區/站點 (Site)」分組分層的視覺化催繳清單，精準攔截法規稽核紅線風險。
 * **自動化亮點**：
   * **三重維度合規過濾 (Multi-Condition Audit Filter)**：結合「在職狀態 (`L 欄`)」、「合規非全齊標籤 (`AF 欄`)」與「時間差運算 (`DateDiff("d", E欄入職日, Date) >= 30`)」，全自動鎖定逾期高風險人員。
-  * **暫存對照與原生高效排序 (Staging & Native Sorting)**：於工作表邊界 (AA/AB 欄) 暫存符合條件的資料行號與站點，調用 Excel 原生 `.Sort` 快速依站點遞增排序，兼顧執行效能與邏輯清晰度。
   * **動態站點視覺化分層 (Dynamic Site Boundary Grouping)**：掃描時即時捕捉站點切換邊界 (`targetSite <> lastSite`)，自動插入跨欄合併 (A~H 欄) 且帶有藍色底色 (`RGB(197, 217, 241)`) 的站點分隔列，便於各站點 HR 專員對接。
-  * **10 項法規文件字串解析重組 (Defect String Concatenation)**：逐欄掃描 10 項法規文件（合約、身分證、銀行帳戶、學歷、良民證、利益衝突、資安、保密書、健檢、扶養親屬），動態組裝缺件字串並精準截除尾端符號 (`Left(missingList, Len - 2)`)，以醒目深紅字體 (`RGB(200, 0, 0)`) 標註。
-  * **報表生命週期管理與環境清理 (Lifecycle & Memory Cleanup)**：執行前動態重建 `30天未交清單` 工作表；查無資料時即時跳出提示並釋放資源；執行後自動清除暫存輔助欄位 (`ClearContents`) 並還原系統重算狀態。
+  * **10 項法規文件字串解析重組 (Defect String Concatenation)**：逐欄掃描 10 項法規文件（合約、身分證、銀行帳戶、學歷、良民證、利益衝突、資安、保密書、健檢、扶養親屬），動態組裝缺件字串並以醒目深紅字體 (`RGB(200, 0, 0)`) 標註。
 
 ```vba
 ' 核心片段：逾期篩選、動態站點分隔列繪製與缺件字串重組
@@ -223,12 +241,9 @@ Next i
 * **對應檔案**：`Export_HSE_Report.bas` (Module1)
 * **功能描述**：專門為職安衛 (HSE) 團隊打造之自動化報件工具。自動自人事主檔中過濾「待處理」且「已收健檢報告」的新進名單，一鍵生成符合法規申報規格的標準化報件清單。
 * **自動化亮點**：
-  * **高風險/現場作業員智能識別 (Role-Based Tagging)**：利用 `InStr` 進行不區分大小寫的字串匹配 (`vbTextCompare`)，自動判定職稱 (第 10 欄) 是否包含 `"operator"`，並於專屬欄位自動標記 `V / X`，輔助 HSE 精準鎖定特殊健檢對象。
-  * **雙重風險視覺化警示 (Dual-Layer Visual Alerts)**：
-    * **離職高風險標記**：若新進人員於申報前已有離職日期 (第 11 欄)，系統自動將該資料列標記為全列螢光黃底 (`vbYellow`)，防止無效申報。
-    * **特殊證照醒目標註**：自動檢核堆高機證照 (第 27 欄)，有證照者於備註欄以深紅色字體 (`RGB(200, 0, 0)`) 標註，強化工安列管。
-  * **狀態推進與閉環管理 (State Progression & Closed-Loop)**：報表生成成功後，程式即時反寫人事主檔之報件狀態欄位（Z 欄由「待處理」更新為「已發送」），徹底避免重複報件或漏報。
-  * **動態工作表重建與格式化 (Dynamic Template Generation)**：執行前自動重置並重建 `HSE_報件表` 工作表，自動繪製合併標題、格線、欄寬自適應 (`AutoFit`)，並針對特定欄位（如 Operator 欄）微調欄寬以達最佳視覺化呈現。
+  * **高風險/現場作業員智能識別 (Role-Based Tagging)**：利用 `InStr` 進行不區分大小寫的字串匹配 (`vbTextCompare`)，自動判定職稱 (第 10 欄) 是否包含 `"operator"`，並於專屬欄位自動標記 `V / X`。
+  * **雙重風險視覺化警示 (Dual-Layer Visual Alerts)**：離職人員整列標記為螢光黃底 (`vbYellow`)；堆高機證照以深紅色字體 (`RGB(200, 0, 0)`) 標註。
+  * **狀態推進與閉環管理 (State Progression & Closed-Loop)**：報表生成成功後，程式即時反寫人事主檔之報件狀態欄位（Z 欄由「待處理」更新為「已發送」），徹底避免重複報件。
 
 ```vba
 ' 核心片段：HSE 條件過濾、高危職務判定、異常視覺標記與狀態閉環反寫
@@ -267,16 +282,15 @@ For i = 2 To lastRow
     End If
 Next i
 ```
+
 ---
 
 ### 5. 良民證繳交稽核概況 (Police Record Compliance Audit)
 * **對應檔案**：`Export_PoliceRecord_Compliance_Report.bas` (Module4)
 * **功能描述**：一鍵產出全公司員工背景調查 (Background Check / 良民證) 的合規稽核總覽報表。自動區隔在職員工之繳交狀態，並透過優先順序重排機制，提供管理層清晰的催繳追蹤依據。
 * **自動化亮點**：
-  * **雙階段優先級排序演算法 (Two-Pass Priority Scan)**：打破原始人事大表依員編或入職日排序的限制，採用兩階段掃描邏輯。第一輪強制將「【未交/催繳】」高風險人員置頂並整列標示紅色字體 (`vbRed`)；第二輪於下方填入「【已完成】」名單，並在兩組資料間自動插入空白列區隔，大幅提升稽核直覺性。
-  * **模組化副程式解耦 (Decoupled Subroutine / DRY 原則)**：將跨欄位資料填寫邏輯抽象化封裝為獨立的 `FillData` 副程式，統一集中管理員編、姓名、入職日、站點與狀態之映射標準，消除重複代碼並大幅提升程式碼維護性。
-  * **在職狀態精準過濾 (Active Workforce Filtering)**：嚴格鎖定在職員工 (`Trim(L 欄) = "在職"`)，自動排除離職人員數據干擾，確保合規稽核名單 100% 反映當前組織現況。
-  * **動態日期格式化與報表美化 (Date Formatting & UI Polish)**：已收件人員之備註欄自動轉換繳交日期格式為標準化 `yyyy/mm/dd` 格式；報表自動配置灰色標題底色 (`RGB(220, 220, 220)`)、全格線繪製與欄寬自適應 (`AutoFit`)。
+  * **雙階段優先級排序演算法 (Two-Pass Priority Scan)**：第一輪強制將「【未交/催繳】」高風險人員置頂並整列標示紅色字體 (`vbRed`)；第二輪於下方填入「【已完成】」名單，並在兩組資料間自動插入空白列區隔。
+  * **模組化副程式解耦 (Decoupled Subroutine / DRY 原則)**：將跨欄位資料填寫邏輯抽象化封裝為獨立的 `FillData` 副程式，統一集中管理映射標準。
 
 ```vba
 ' 核心片段：兩階段優先級掃描、未交人員紅字置頂與 FillData 模組化調用
@@ -328,3 +342,22 @@ End Sub
 * **消除人為疏漏 (Error Reduction)**：透過防呆機制與自動化初始化，避免新進員工建檔時漏填合規追蹤欄位，確保 **100%** 的追蹤覆蓋率。
 * **法遵風險管控 (Compliance Management)**：精準抓取「滿 30 天未交齊」及 HSE 特殊身分（操作員 / 堆高機），大幅降低企業面臨的勞檢與工安合規風險。
 * **工時大幅節省 (Time-Saving)**：原先需耗時數小時跨表比對 (VLOOKUP)、手動上色與篩選的例行公事，縮短至 **單擊按鈕 (1-Click)** 於秒級內完成，釋放 HR 團隊行政量能。
+
+---
+
+## 📂 檔案目錄與模組對照 (Repository Structure)
+
+```text
+📁 01_HR_Ops_and_CB_Automation
+│
+├── 📁 assets
+│   ├── custom_ribbon_ui.png                      # 自訂 Ribbon UI 介面截圖
+│   └── master_data_table.png                     # 人事主檔與條件格式實機截圖
+│
+├── 📄 README.md                                  # 專案說明與架構文檔
+├── 📄 SyncStaffList.bas                          # 模組 1：HRIS 名單智能同步模組
+├── 📄 Export_30Days_MissingReport.bas            # 模組 3：新人入職 30 天催繳報表模組
+├── 📄 Export_HSE_Report.bas                      # 模組 2：HSE 入職健檢報件模組
+├── 📄 Export_PoliceRecord_Compliance_Report.bas  # 模組 4：良民證繳交稽核模組
+└── 📄 Workbook_SheetChange.cls                   # 模組 5：活頁簿全域事件監聽模組
+```

@@ -14,7 +14,7 @@
 為降低第一線 HR 夥伴的操作門檻，本專案將後端複雜的演算法與資料清洗邏輯封裝至 **Excel 自訂功能區 (Custom Ribbon UI)**。使用者無須手動執行巨集或跨表比對，點擊單一按鈕即可驅動端到端自動化：
 
 <p align="center">
-  <img src="assets/custom_ribbon_ui.png" alt="Excel 自訂功能區 - 一鍵報件系統" width="480">
+  <img src="assets/01_custom_ribbon_ui.png" alt="Excel 自訂功能區 - 一鍵報件系統" width="480">
   <br>
   <em>圖 1：自訂 Excel Ribbon 功能區 — 整合「名單同步」、「報件產出」與「合規催繳」之一鍵操作介面</em>
 </p>
@@ -26,6 +26,12 @@
 * **`StaffTable`**：人事主資料表 (Master Data)，存放所有員工的在職狀態、合規文件繳交進度、時間戳記與個人資訊。
 * **`Download`**：由 HRIS 系統匯出之原始異動資料檔。
 * **VBA 核心模組**：包含 4 個獨立業務報表/處理模組 (`.bas`)，以及 1 個全域事件監聽模組 (`.cls`)。
+
+<p align="center">
+  <img src="assets/02_master_data_table.png" alt="人事主資料庫實機畫面" width="900">
+  <br>
+  <em>圖 2：人事主資料庫 (StaffTable) 實機畫面 — 條件格式動態視覺化標籤、自動帶入之繳交日期戳記與入職合規檢核狀態</em>
+</p>
 
 ```mermaid
 graph TD
@@ -61,6 +67,18 @@ graph TD
   * **格式與公式動態繼承**：自動複製並延伸關鍵計算公式（AF 欄入職合規、AG 欄站點、AH 欄員編排序），並透過 `xlPasteValidation` 與 `xlPasteFormats` 完整繼承下拉選單資料驗證與條件格式。
   * **在職狀態智能判定**：依據第 11 欄（離職日期）是否存在數值，自動判定並寫入在職狀態（「在職」或「離職」）。
   * **效能優化與防錯設計**：批次處理前關閉螢幕更新 (`ScreenUpdating = False`) 與自動重算 (`xlCalculationManual`)，並加入 `ErrorHandler` 與防呆確認視窗，執行完畢後精確回報新進與更新筆數。
+
+<p align="center">
+  <img src="assets/03_1_hris_raw_download.png" alt="HRIS 原始匯出名單 (Download 工作表)" width="850">
+  <br>
+  <em>圖 3-1：前置輸入源 — 由 HRIS 系統匯出之未加工原始異動資料 (Download 工作表)</em>
+</p>
+
+<p align="center">
+  <img src="assets/03_2_master_synced_result.png" alt="巨集同步後之人事主表 (StaffTable)" width="900">
+  <br>
+  <em>圖 3-2：執行 SyncStaffList 後 — 自動分流新舊資料、在職狀態判定、合規欄位初始化（未交紅底警示）與下拉格式繼承</em>
+</p>
 
 ```vba
 ' 核心片段：SyncStaffList 智能分流與格式自動繼承邏輯
@@ -122,12 +140,6 @@ End If
   * **大批次貼上防崩潰 (Batch Edit Protection)**：加入 `Target.CountLarge > 100` 門檻判斷，當使用者進行整列刪除或大範圍跨欄貼上時自動略過監聽，防止記憶體超載造成 Excel 凍結。
   * **全域容錯恢復機制 (Resilient Error Handling)**：內建 `ErrorHandler` 機制，即便程式遭遇不可預期的執行錯誤，也能確保強制恢復 `EnableEvents = True`。
 
-<p align="center">
-  <img src="assets/master_data_table.png" alt="人事主資料庫與條件格式示意圖" width="900">
-  <br>
-  <em>圖 2：人事主資料庫實機畫面 — 綠色/紅色狀態視覺化標籤、自動帶入之繳交日期戳記與入職合規即時檢核狀態</em>
-</p>
-
 ```vba
 ' 核心片段：全域事件監聽、防卡死門檻與雙向日期戳記邏輯
 Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
@@ -182,6 +194,12 @@ End Sub
   * **三重維度合規過濾 (Multi-Condition Audit Filter)**：結合「在職狀態 (`L 欄`)」、「合規非全齊標籤 (`AF 欄`)」與「時間差運算 (`DateDiff("d", E欄入職日, Date) >= 30`)」，全自動鎖定逾期高風險人員。
   * **動態站點視覺化分層 (Dynamic Site Boundary Grouping)**：掃描時即時捕捉站點切換邊界 (`targetSite <> lastSite`)，自動插入跨欄合併 (A~H 欄) 且帶有藍色底色 (`RGB(197, 217, 241)`) 的站點分隔列，便於各站點 HR 專員對接。
   * **10 項法規文件字串解析重組 (Defect String Concatenation)**：逐欄掃描 10 項法規文件（合約、身分證、銀行帳戶、學歷、良民證、利益衝突、資安、保密書、健檢、扶養親屬），動態組裝缺件字串並以醒目深紅字體 (`RGB(200, 0, 0)`) 標註。
+
+<p align="center">
+  <img src="assets/04_30days_missing_report.png" alt="30 天合規催繳報表成果畫面" width="850">
+  <br>
+  <em>圖 4：30 天合規催繳報表實機產出 — 依站點藍色標題分層、自動串接 10 項法律紅線缺件明細並標註醒目紅字</em>
+</p>
 
 ```vba
 ' 核心片段：逾期篩選、動態站點分隔列繪製與缺件字串重組
@@ -245,6 +263,12 @@ Next i
   * **雙重風險視覺化警示 (Dual-Layer Visual Alerts)**：離職人員整列標記為螢光黃底 (`vbYellow`)；堆高機證照以深紅色字體 (`RGB(200, 0, 0)`) 標註。
   * **狀態推進與閉環管理 (State Progression & Closed-Loop)**：報表生成成功後，程式即時反寫人事主檔之報件狀態欄位（Z 欄由「待處理」更新為「已發送」），徹底避免重複報件。
 
+<p align="center">
+  <img src="assets/05_hse_report.png" alt="HSE 健檢報件表成果畫面" width="850">
+  <br>
+  <em>圖 5：HSE 健檢報件表實機產出 — Operator 欄位自動勾選、離職人員整列黃底警示與堆高機證照紅字標註</em>
+</p>
+
 ```vba
 ' 核心片段：HSE 條件過濾、高危職務判定、異常視覺標記與狀態閉環反寫
 For i = 2 To lastRow
@@ -291,6 +315,12 @@ Next i
 * **自動化亮點**：
   * **雙階段優先級排序演算法 (Two-Pass Priority Scan)**：第一輪強制將「【未交/催繳】」高風險人員置頂並整列標示紅色字體 (`vbRed`)；第二輪於下方填入「【已完成】」名單，並在兩組資料間自動插入空白列區隔。
   * **模組化副程式解耦 (Decoupled Subroutine / DRY 原則)**：將跨欄位資料填寫邏輯抽象化封裝為獨立的 `FillData` 副程式，統一集中管理映射標準。
+
+<p align="center">
+  <img src="assets/06_police_record_report.png" alt="良民證繳交概況表成果畫面" width="850">
+  <br>
+  <em>圖 6：良民證概況表實機產出 — 兩階段優先級掃描結果（未交催繳人員置頂紅字警示、已收件人員於下方列管）</em>
+</p>
 
 ```vba
 ' 核心片段：兩階段優先級掃描、未交人員紅字置頂與 FillData 模組化調用
@@ -351,8 +381,13 @@ End Sub
 📁 01_HR_Ops_and_CB_Automation
 │
 ├── 📁 assets
-│   ├── custom_ribbon_ui.png                      # 自訂 Ribbon UI 介面截圖
-│   └── master_data_table.png                     # 人事主檔與條件格式實機截圖
+│   ├── 01_custom_ribbon_ui.png                   # 圖 1：自訂 Ribbon UI 介面截圖
+│   ├── 02_master_data_table.png                  # 圖 2：人事主檔與條件格式實機截圖
+│   ├── 03_1_hris_raw_download.png                # 圖 3-1：HRIS 原始匯出名單 (Download 表)
+│   ├── 03_2_master_synced_result.png             # 圖 3-2：巨集同步後之人事主表 (StaffTable)
+│   ├── 04_30days_missing_report.png              # 圖 4：30 天合規催繳清單成果截圖
+│   ├── 05_hse_report.png                         # 圖 5：HSE 入職健檢報件表成果截圖
+│   └── 06_police_record_report.png               # 圖 6：良民證繳交概況表成果截圖
 │
 ├── 📄 README.md                                  # 專案說明與架構文檔
 ├── 📄 SyncStaffList.bas                          # 模組 1：HRIS 名單智能同步模組

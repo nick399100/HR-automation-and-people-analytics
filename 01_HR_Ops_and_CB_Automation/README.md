@@ -261,23 +261,56 @@ Next i
 ---
 
 ### 5. 良民證繳交稽核概況 (Police Record Compliance Audit)
-* **對應模組**：`Export_PoliceRecord_Compliance_Report.bas`
-* **功能描述**：一鍵產出全公司背景調查 (Background Check) 文件的合規狀態總覽。
+* **對應檔案**：`Export_PoliceRecord_Compliance_Report.bas` (Module4)
+* **功能描述**：一鍵產出全公司員工背景調查 (Background Check / 良民證) 的合規稽核總覽報表。自動區隔在職員工之繳交狀態，並透過優先順序重排機制，提供管理層清晰的催繳追蹤依據。
 * **自動化亮點**：
-  * **優先順序重排**：打破原有人事大表排序，強制將「【未交/催繳】」人員置頂並標示為紅色字體，提升稽核直覺性。
-  * **模組化代碼設計**：將填表邏輯獨立拆分為 `FillData` 副程式，提高程式碼重用性與維護性。
+  * **雙階段優先級排序演算法 (Two-Pass Priority Scan)**：打破原始人事大表依員編或入職日排序的限制，採用兩階段掃描邏輯。第一輪強制將「【未交/催繳】」高風險人員置頂並整列標示紅色字體 (`vbRed`)；第二輪於下方填入「【已完成】」名單，並在兩組資料間自動插入空白列區隔，大幅提升稽核直覺性。
+  * **模組化副程式解耦 (Decoupled Subroutine / DRY 原則)**：將跨欄位資料填寫邏輯抽象化封裝為獨立的 `FillData` 副程式，統一集中管理員編、姓名、入職日、站點與狀態之映射標準，消除重複代碼並大幅提升程式碼維護性。
+  * **在職狀態精準過濾 (Active Workforce Filtering)**：嚴格鎖定在職員工 (`Trim(L 欄) = "在職"`)，自動排除離職人員數據干擾，確保合規稽核名單 100% 反映當前組織現況。
+  * **動態日期格式化與報表美化 (Date Formatting & UI Polish)**：已收件人員之備註欄自動轉換繳交日期格式為標準化 `yyyy/mm/dd` 格式；報表自動配置灰色標題底色 (`RGB(220, 220, 220)`)、全格線繪製與欄寬自適應 (`AutoFit`)。
+
 ```vba
-' 核心片段：讓 HR 一眼就能辨識需要催繳的對象。
-' --- 第一輪：先抓「未交」的人 (排在前面並標紅字比較醒目) ---
+' 核心片段：兩階段優先級掃描、未交人員紅字置頂與 FillData 模組化調用
+' --- 第一輪：先抓「未交」人員 (置頂並整列標紅) ---
 For i = 2 To lastRow
-    If Trim(wsMaster.Cells(i, 12).Value) = "在職" And wsMaster.Cells(i, 18).Value <> "已收" Then
-        wsRep.Cells(rRow, 1).Value = "【未交/催繳】"
-        wsRep.Cells(rRow, 1).Font.Color = vbRed
-        Call FillData(wsRep, wsMaster, rRow, i) 
-        wsRep.Range("A" & rRow & ":G" & rRow).Font.Color = vbRed 
-        rRow = rRow + 1
+    If Trim(wsMaster.Cells(i, 12).Value) = "在職" Then
+        If wsMaster.Cells(i, 18).Value <> "已收" Then
+            wsRep.Cells(rRow, 1).Value = "【未交/催繳】"
+            wsRep.Cells(rRow, 1).Font.Color = vbRed
+            Call FillData(wsRep, wsMaster, rRow, i)              ' 調用模組化填值副程式
+            wsRep.Range("A" & rRow & ":G" & rRow).Font.Color = vbRed ' 未交者整行紅字警示
+            rRow = rRow + 1
+        End If
     End If
 Next i
+
+' 插入空行作為視覺區隔
+rRow = rRow + 1
+
+' --- 第二輪：抓「已收」人員 (排列於下方) ---
+For i = 2 To lastRow
+    If Trim(wsMaster.Cells(i, 12).Value) = "在職" Then
+        If wsMaster.Cells(i, 18).Value = "已收" Then
+            wsRep.Cells(rRow, 1).Value = "【已完成】"
+            Call FillData(wsRep, wsMaster, rRow, i)
+            rRow = rRow + 1
+        End If
+    End If
+Next i
+
+' --- 獨立填值副程式 (減少重複邏輯，統一映射標準) ---
+Sub FillData(wsRep As Worksheet, wsMaster As Worksheet, rRow As Long, mRow As Long)
+    wsRep.Cells(rRow, 2).Value = wsMaster.Cells(mRow, 1).Value  ' 員編 (A 欄)
+    wsRep.Cells(rRow, 3).Value = wsMaster.Cells(mRow, 2).Value  ' 姓名 (B 欄)
+    wsRep.Cells(rRow, 4).Value = wsMaster.Cells(mRow, 5).Value  ' 入職日 (E 欄)
+    wsRep.Cells(rRow, 5).Value = wsMaster.Cells(mRow, 33).Value ' 站點 (AG 欄)
+    wsRep.Cells(rRow, 6).Value = wsMaster.Cells(mRow, 18).Value ' 狀態 (R 欄)
+    
+    ' 若已繳交，備註欄自動格式化日期
+    If wsMaster.Cells(mRow, 18).Value = "已收" Then
+        wsRep.Cells(rRow, 7).Value = "繳交日: " & Format(wsMaster.Cells(mRow, 19).Value, "yyyy/mm/dd")
+    End If
+End Sub
 ```
 
 ---

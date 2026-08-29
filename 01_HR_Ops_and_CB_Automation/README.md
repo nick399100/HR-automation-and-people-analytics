@@ -1,4 +1,4 @@
-# 🚀 HR Onboarding & Compliance Automation System
+# HR Onboarding & Compliance Automation System
 **全自動化人事營運 (HR Ops) 與合規追蹤系統**
 
 ---

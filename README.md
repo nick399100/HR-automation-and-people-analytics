@@ -31,4 +31,4 @@ Explore my case studies below. Each module contains a detailed design journey, b
 * **Focus:** Non-reversible ID masking algorithms for data privacy and the final Power BI HR Executive Dashboard integration.
 
 ---
-📫 **Connect with me:** [My LinkedIn Profile](www.linkedin.com/in/nick-chen-66a43a2a3)
+📫 **Connect with me:** [My LinkedIn Profile](https://www.linkedin.com/in/nick-chen-66a43a2a3)

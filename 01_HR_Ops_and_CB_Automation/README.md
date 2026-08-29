@@ -147,30 +147,65 @@ End Sub
 ---
 
 ### 3. 新人入職 30 天合規催繳報表 (30-Days Missing Document Report)
-* **對應模組**：`Export_30Days_MissingReport.bas`
-* **功能描述**：針對入職滿 30 天且文件未齊全的在職人員，自動產出各站點的催繳清單。
+* **對應檔案**：`Export_30Days_MissingReport.bas` (Module3)
+* **功能描述**：針對入職滿 30 天且文件尚未齊全的在職人員，自動生成依「廠區/站點 (Site)」分組分層的視覺化催繳清單，精準攔截法規稽核紅線風險。
 * **自動化亮點**：
-  * **動態條件篩選**：結合「在職 (`Trim = 在職`)」、「文件未齊 (`InStr <> 全齊`)」、「年資 ≥ 30 天 (`DateDiff >= 30`)」進行精準攔截。
-  * **法律紅線缺件字串重組**：自動掃描 10 項關鍵文件，並將缺交項目重組成結構化字串（如：`"合約, 良民證, 健檢報告"`）。
-  * **視覺化分組**：報表依據「站點 (Site)」進行自動排序與視覺化分層（自動插入藍色底色合併儲存格作為站點標題）。
+  * **三重維度合規過濾 (Multi-Condition Audit Filter)**：結合「在職狀態 (`L 欄`)」、「合規非全齊標籤 (`AF 欄`)」與「時間差運算 (`DateDiff("d", E欄入職日, Date) >= 30`)」，全自動鎖定逾期高風險人員。
+  * **暫存對照與原生高效排序 (Staging & Native Sorting)**：於工作表邊界 (AA/AB 欄) 暫存符合條件的資料行號與站點，調用 Excel 原生 `.Sort` 快速依站點遞增排序，兼顧執行效能與邏輯清晰度。
+  * **動態站點視覺化分層 (Dynamic Site Boundary Grouping)**：掃描時即時捕捉站點切換邊界 (`targetSite <> lastSite`)，自動插入跨欄合併 (A~H 欄) 且帶有藍色底色 (`RGB(197, 217, 241)`) 的站點分隔列，便於各站點 HR 專員對接。
+  * **10 項法規文件字串解析重組 (Defect String Concatenation)**：逐欄掃描 10 項法規文件（合約、身分證、銀行帳戶、學歷、良民證、利益衝突、資安、保密書、健檢、扶養親屬），動態組裝缺件字串並精準截除尾端符號 (`Left(missingList, Len - 2)`)，以醒目深紅字體 (`RGB(200, 0, 0)`) 標註。
+  * **報表生命週期管理與環境清理 (Lifecycle & Memory Cleanup)**：執行前動態重建 `30天未交清單` 工作表；查無資料時即時跳出提示並釋放資源；執行後自動清除暫存輔助欄位 (`ClearContents`) 並還原系統重算狀態。
 
 ```vba
-' 核心片段：法規紅線多重條件判斷與缺件清單重組
-If Trim(wsMaster.Cells(i, "L").Value) = "在職" And _
-   InStr(1, wsMaster.Cells(i, "AF").Value, "全齊") = 0 And _
-   wsMaster.Cells(i, "AF").Value <> "" And _
-   DateDiff("d", wsMaster.Cells(i, "E").Value, Date) >= 30 Then
+' 核心片段：逾期篩選、動態站點分隔列繪製與缺件字串重組
+' 1. 三重條件篩選並暫存於 AA/AB 欄
+For i = 2 To lastRow
+    If Trim(wsMaster.Cells(i, "L").Value) = "在職" And _
+       InStr(1, wsMaster.Cells(i, "AF").Value, "全齊") = 0 And _
+       wsMaster.Cells(i, "AF").Value <> "" And _
+       DateDiff("d", wsMaster.Cells(i, "E").Value, Date) >= 30 Then
+        
+        wsRep.Cells(rRow, 27).Value = i                     ' 暫存行號
+        wsRep.Cells(rRow, 28).Value = wsMaster.Cells(i, "AG").Value ' 暫存站點
+        rRow = rRow + 1
+    End If
+Next i
+
+' 2. 依站點排序暫存清單
+wsRep.Range("AA2:AB" & rRow - 1).Sort Key1:=wsRep.Range("AB2"), Order1:=xlAscending
+
+' 3. 繪製站點分層標題與組裝缺件明細
+For i = 2 To dataCount
+    Dim mRow As Long: mRow = wsRep.Cells(i, 27).Value
+    targetSite = wsRep.Cells(i, 28).Value
     
-    ' 掃描並重組字串
+    ' 站點邊界切換時，插入藍色分隔列
+    If targetSite <> lastSite Then
+        With wsRep.Range("A" & rRow & ":H" & rRow)
+            .Merge: .Value = IIf(targetSite = "", "未註記站點", targetSite)
+            .Font.Bold = True: .HorizontalAlignment = xlCenter
+            .Interior.Color = RGB(197, 217, 241)
+        End With
+        rRow = rRow + 1: lastSite = targetSite
+    End If
+
+    ' 掃描 10 項文件狀態並重組字串
     missingList = ""
     If Trim(wsMaster.Cells(mRow, "M").Value) = "未交" Then missingList = missingList & "合約, "
+    If Trim(wsMaster.Cells(mRow, "N").Value) = "未交" Then missingList = missingList & "身分證, "
     If Trim(wsMaster.Cells(mRow, "R").Value) = "未交" Then missingList = missingList & "良民證, "
     If Trim(wsMaster.Cells(mRow, "X").Value) = "未交" Then missingList = missingList & "健檢報告, "
     If Len(missingList) > 0 Then missingList = Left(missingList, Len(missingList) - 2)
-    
+
+    ' 填入報表並標記法律紅線缺件
+    wsRep.Cells(rRow, 1).Value = wsMaster.Cells(mRow, "A").Value
+    wsRep.Cells(rRow, 2).Value = wsMaster.Cells(mRow, "B").Value
+    wsRep.Cells(rRow, 5).Value = wsMaster.Cells(mRow, "E").Value
+    wsRep.Cells(rRow, 6).Value = targetSite
     wsRep.Cells(rRow, 7).Value = missingList
     wsRep.Cells(rRow, 7).Font.Color = RGB(200, 0, 0)
-End If
+    rRow = rRow + 1
+Next i
 ```
 
 ---

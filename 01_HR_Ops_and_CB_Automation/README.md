@@ -16,12 +16,13 @@
 * **VBA 核心模組**：包含 4 個獨立業務報表/處理模組 (`.bas`)，以及 1 個全域事件監聽模組 (`.cls`)。
 ```mermaid
 graph TD
-    A[HRIS 系統原始名單 Download] -->|1. SyncStaffList 智能分流| B[(StaffTable 人事主資料庫)]
+    A["HRIS 系統原始名單 Download"] -->|"1. SyncStaffList 智能分流"| B[("StaffTable 人事主資料庫")]
     
-    B -->|2. Workbook_SheetChange 背景監聽| C[即時自動押期 / 清除時間戳記]
-    B -->|3. Export_30Days_MissingReport| D[📋30天合規催繳表 (站點分層+紅字警示)]
-    B -->|4. Export_HSE_Report| E[🏥HSE 健檢報件表 (高危職務標記+黃底警告)]
-    B -->|5. Export_PoliceRecord_Compliance| F[🛡️良民證概況表 (未交置頂+兩階段排序)]
+    B -->|"2. Workbook_SheetChange 背景監聽"| C["即時自動押期 / 清除時間戳記"]
+    
+    B -->|"3. Export_30Days_MissingReport"| D["📋 30天合規催繳表 (站點分層+紅字警示)"]
+    B -->|"4. Export_HSE_Report"| E["🏥 HSE 健檢報件表 (高危職務標記+黃底警告)"]
+    B -->|"5. Export_PoliceRecord_Compliance"| F["🛡️ 良民證概況表 (未交置頂+兩階段排序)"]
 ```
 ---
 

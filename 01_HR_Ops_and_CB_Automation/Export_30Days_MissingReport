@@ -1,0 +1,113 @@
+Attribute VB_Name = "Module3"
+Sub Export_30Days_MissingReport()
+    Dim wsMaster As Worksheet, wsRep As Worksheet
+    Dim lastRow As Long, i As Long, rRow As Long
+    Dim targetSite As String, lastSite As String
+    Dim missingList As String
+    
+    ' --- 1. 防呆詢問 ---
+    If MsgBox("準備產出「30天催繳清單」，是否繼續？", vbInformation + vbYesNo) = vbNo Then Exit Sub
+    
+    Set wsMaster = Sheets("StaffTable")
+    
+    ' 2. 建立報表分頁
+    On Error Resume Next
+    Application.DisplayAlerts = False: Sheets("30天未交清單").Delete: Application.DisplayAlerts = True
+    Set wsRep = Sheets.Add(After:=wsMaster): wsRep.Name = "30天未交清單"
+    On Error GoTo 0
+
+    With Application
+        .ScreenUpdating = False
+        .Calculation = xlCalculationManual
+    End With
+
+    ' 3. 篩選 (在職 + 缺件 + 滿30天)
+    rRow = 2
+    lastRow = wsMaster.Cells(wsMaster.Rows.Count, "A").End(xlUp).Row
+    
+    For i = 2 To lastRow
+        ' 修正：L 為在職狀態，AF (32欄) 為合規檢核，AG (33欄) 為站點
+        If Trim(wsMaster.Cells(i, "L").Value) = "在職" And _
+           InStr(1, wsMaster.Cells(i, "AF").Value, "全齊") = 0 And _
+           wsMaster.Cells(i, "AF").Value <> "" And _
+           DateDiff("d", wsMaster.Cells(i, "E").Value, Date) >= 30 Then
+            
+            wsRep.Cells(rRow, 27).Value = i ' 暫存行號於 AA 欄
+            wsRep.Cells(rRow, 28).Value = wsMaster.Cells(i, "AG").Value ' 暫存站點於 AB 欄
+            rRow = rRow + 1
+        End If
+    Next i
+
+    ' 檢查是否有符合資料
+    If rRow = 2 Then
+        With Application
+            .ScreenUpdating = True: .Calculation = xlCalculationAutomatic
+        End With
+        MsgBox "目前無符合條件（滿30天且文件未齊）之人員。", vbInformation: Exit Sub
+    End If
+
+    ' 排序 (依 AB 欄站點)
+    wsRep.Range("AA2:AB" & rRow - 1).Sort Key1:=wsRep.Range("AB2"), Order1:=xlAscending
+
+    ' 4. 繪製報表
+    wsRep.Range("A1:H1").Value = Array("員工編號", "姓名", "英文名字", "英文姓氏", "入職日期", "站點", "缺交明細 (法律紅線)", "備註")
+    wsRep.Range("A1:H1").Font.Bold = True
+    rRow = 2
+    lastSite = ""
+    
+    Dim dataCount As Long: dataCount = wsRep.Cells(wsRep.Rows.Count, "AA").End(xlUp).Row
+    For i = 2 To dataCount
+        Dim mRow As Long: mRow = wsRep.Cells(i, 27).Value
+        targetSite = wsRep.Cells(i, 28).Value
+        
+        ' 藍色分隔列
+        If targetSite <> lastSite Then
+            With wsRep.Range("A" & rRow & ":H" & rRow)
+                .Merge: .Value = IIf(targetSite = "", "未註記站點", targetSite)
+                .Font.Bold = True: .HorizontalAlignment = xlCenter
+                .Interior.Color = RGB(197, 217, 241)
+            End With
+            rRow = rRow + 1: lastSite = targetSite
+        End If
+
+        ' --- 掃描缺件明細 (依照新欄位編號修正) ---
+        missingList = ""
+        If Trim(wsMaster.Cells(mRow, "M").Value) = "未交" Then missingList = missingList & "合約, "
+        If Trim(wsMaster.Cells(mRow, "N").Value) = "未交" Then missingList = missingList & "身分證, "
+        If Trim(wsMaster.Cells(mRow, "O").Value) = "未交" Then missingList = missingList & "銀行帳戶, "
+        If Trim(wsMaster.Cells(mRow, "P").Value) = "未交" Then missingList = missingList & "學歷, "
+        If Trim(wsMaster.Cells(mRow, "R").Value) = "未交" Then missingList = missingList & "良民證, "
+        If Trim(wsMaster.Cells(mRow, "U").Value) = "未交" Then missingList = missingList & "利益衝突, "
+        If Trim(wsMaster.Cells(mRow, "V").Value) = "未交" Then missingList = missingList & "資安, "
+        If Trim(wsMaster.Cells(mRow, "W").Value) = "未交" Then missingList = missingList & "保密書, "
+        If Trim(wsMaster.Cells(mRow, "X").Value) = "未交" Then missingList = missingList & "健檢報告, "
+        If Trim(wsMaster.Cells(mRow, "AD").Value) = "未交" Then missingList = missingList & "扶養親屬, "
+        
+        If Len(missingList) > 0 Then missingList = Left(missingList, Len(missingList) - 2)
+
+        ' 填入報表
+        wsRep.Cells(rRow, 1).Value = wsMaster.Cells(mRow, "A").Value
+        wsRep.Cells(rRow, 2).Value = wsMaster.Cells(mRow, "B").Value
+        wsRep.Cells(rRow, 3).Value = wsMaster.Cells(mRow, "C").Value
+        wsRep.Cells(rRow, 4).Value = wsMaster.Cells(mRow, "D").Value
+        wsRep.Cells(rRow, 5).Value = wsMaster.Cells(mRow, "E").Value ' 入職日期
+        wsRep.Cells(rRow, 5).NumberFormat = "yyyy/mm/dd"
+        wsRep.Cells(rRow, 6).Value = targetSite
+        wsRep.Cells(rRow, 7).Value = missingList
+        wsRep.Cells(rRow, 7).Font.Color = RGB(200, 0, 0)
+        
+        rRow = rRow + 1
+    Next i
+
+    ' 5. 美化與恢復
+    wsRep.Columns("A:H").AutoFit
+    wsRep.Columns("G").ColumnWidth = 45
+    wsRep.Columns("AA:AB").ClearContents
+    
+    With Application
+        .ScreenUpdating = True: .Calculation = xlCalculationAutomatic
+    End With
+    
+    MsgBox "催繳清單產出完成！"
+End Sub
+

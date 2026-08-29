@@ -1,0 +1,114 @@
+Attribute VB_Name = "Module2"
+Sub SyncStaffList()
+    Dim wsMaster As Worksheet, wsDown As Worksheet
+    Dim lastRowDown As Long, lastRowMaster As Long
+    Dim i As Long, matchRow As Variant
+    Dim newCount As Integer, updateCount As Integer
+    Dim col As Integer
+    
+    ' --- 防呆詢問 ---
+    If MsgBox("確定匯入名單？" & vbCrLf & "此版本將自動同步資料並補齊 AH 欄後四碼排序公式。", vbQuestion + vbYesNo, "同步確認") = vbNo Then Exit Sub
+    
+    If Sheets("Download").Cells(Rows.Count, "A").End(xlUp).Row < 2 Then
+        MsgBox "Download 工作表沒有資料，請貼入名單後再執行！", vbExclamation, "錯誤"
+        Exit Sub
+    End If
+
+    Set wsMaster = Sheets("StaffTable")
+    Set wsDown = Sheets("Download")
+    newCount = 0
+    updateCount = 0
+    
+    With Application
+        .ScreenUpdating = False
+        .Calculation = xlCalculationManual
+        .EnableEvents = False
+    End With
+
+    On Error GoTo ErrorHandler
+
+    lastRowDown = wsDown.Cells(wsDown.Rows.Count, "A").End(xlUp).Row
+    
+    For i = 2 To lastRowDown
+        matchRow = Application.Match(wsDown.Cells(i, "A").Value, wsMaster.Columns("A"), 0)
+        
+        If IsError(matchRow) Then
+            ' =================================================================
+            ' --- A. 處理新進員工 ---
+            ' =================================================================
+            lastRowMaster = wsMaster.Cells(wsMaster.Rows.Count, "A").End(xlUp).Row + 1
+            
+            ' 1. 搬運 Download 的 A~K (1~11欄)
+            For col = 1 To 11
+                wsMaster.Cells(lastRowMaster, col).Value = wsDown.Cells(i, col).Value
+            Next col
+            
+            ' 2. 自動判斷 L 欄 (在職狀態)
+            If wsDown.Cells(i, 11).Value <> "" Then
+                wsMaster.Cells(lastRowMaster, 12).Value = "離職"
+            Else
+                wsMaster.Cells(lastRowMaster, 12).Value = "在職"
+            End If
+            
+            ' 3. 初始化「未交」 (M~R, U~X, AB~AE)
+            wsMaster.Range("M" & lastRowMaster & ":R" & lastRowMaster).Value = "未交"
+            wsMaster.Range("U" & lastRowMaster & ":X" & lastRowMaster).Value = "未交"
+            wsMaster.Range("AB" & lastRowMaster & ":AE" & lastRowMaster).Value = "未交"
+            
+            ' 4. 初始化「待處理」 (T, Z)
+            wsMaster.Cells(lastRowMaster, "T").Value = "待處理"
+            wsMaster.Cells(lastRowMaster, "Z").Value = "待處理"
+            
+            ' 5. 清空日期與證照欄位 (S, Y, AA)
+            wsMaster.Cells(lastRowMaster, "S").ClearContents
+            wsMaster.Cells(lastRowMaster, "Y").ClearContents
+            wsMaster.Cells(lastRowMaster, "AA").ClearContents
+            
+            ' 6. 完美拷貝公式 (AF 入職合規, AG 站點, AH 員編後四碼排序)
+            wsMaster.Cells(2, "AF").Copy Destination:=wsMaster.Cells(lastRowMaster, "AF")
+            wsMaster.Cells(2, "AG").Copy Destination:=wsMaster.Cells(lastRowMaster, "AG")
+            wsMaster.Cells(2, "AH").Copy Destination:=wsMaster.Cells(lastRowMaster, "AH")
+            
+            ' 7. 強制延續「下拉選單與格式」 (延伸至 AH 欄)
+            wsMaster.Rows(2).Copy
+            wsMaster.Rows(lastRowMaster).PasteSpecial Paste:=xlPasteFormats
+            
+            wsMaster.Range("M2:AE2").Copy
+            wsMaster.Range("M" & lastRowMaster & ":AE" & lastRowMaster).PasteSpecial Paste:=xlPasteValidation
+            Application.CutCopyMode = False
+            
+            newCount = newCount + 1
+        Else
+            ' =================================================================
+            ' --- B. 處理在職/舊員工 (只更新 F~K 變動) ---
+            ' =================================================================
+            For col = 6 To 11
+                wsMaster.Cells(matchRow, col).Value = wsDown.Cells(i, col).Value
+            Next col
+            
+            If wsDown.Cells(i, 11).Value <> "" Then
+                wsMaster.Cells(matchRow, 12).Value = "離職"
+            End If
+            
+            updateCount = updateCount + 1
+        End If
+    Next i
+
+ErrorHandler:
+    Application.CutCopyMode = False
+    With Application
+        .ScreenUpdating = True
+        .Calculation = xlCalculationAutomatic
+        .EnableEvents = True
+    End With
+    
+    If Err.Number = 0 Then
+        MsgBox "同步名單完成！" & vbCrLf & _
+               "--------------------------" & vbCrLf & _
+               "新進人員：" & newCount & " 筆 (排序公式已自動延續)" & vbCrLf & _
+               "資料更新：" & updateCount & " 筆 (僅更新個人資訊)", vbInformation
+    Else
+        MsgBox "同步過程中發生錯誤: " & Err.Description, vbCritical
+    End If
+End Sub
+

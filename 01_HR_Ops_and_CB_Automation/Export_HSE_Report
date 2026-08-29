@@ -1,0 +1,95 @@
+Attribute VB_Name = "Module1"
+Sub Export_HSE_Report_Upgraded_V4()
+    ' --- 1. 防呆與宣告 ---
+    Dim ans As VbMsgBoxResult
+    ans = MsgBox("準備產出「入職健檢報告名單」？" & vbCrLf & _
+                 "格式將依照參考圖製作。", vbQuestion + vbYesNo, "產出確認")
+    If ans = vbNo Then Exit Sub
+
+    Dim wsMaster As Worksheet, wsRep As Worksheet
+    Dim lastRow As Long, i As Long, rRow As Long
+    Dim mRow As Long
+    
+    Set wsMaster = Sheets("StaffTable")
+
+    ' 2. 建立新分頁
+    On Error Resume Next
+    Application.DisplayAlerts = False
+    Sheets("HSE_報件表").Delete
+    Application.DisplayAlerts = True
+    Set wsRep = Sheets.Add(After:=wsMaster): wsRep.Name = "HSE_報件表"
+    On Error GoTo 0
+
+    Application.ScreenUpdating = False
+
+    ' 3. 繪製標題列 (參考 image_ca0242.png)
+    With wsRep
+        ' A1:H1 合併標題
+        .Range("A1:H1").Merge
+        .Range("A1").Value = "入職健檢報告名單"
+        .Range("A1").HorizontalAlignment = xlCenter
+        .Range("A1").Font.Size = 11
+        .Range("A1").Font.Bold = True
+        
+        ' A2:H2 欄位名稱
+        .Range("A2:H2").Value = Array("員工編號", "中文姓名", "入職日期", "部門", "operator", "工作地點", "離職日期", "備註")
+        .Range("A2:H2").Font.Bold = True
+        .Range("A2:H2").HorizontalAlignment = xlCenter
+        .Range("A2:H2").Borders.LineStyle = xlContinuous
+    End With
+
+    ' 4. 篩選資料並填入
+    rRow = 3 ' 資料從第 3 列開始
+    lastRow = wsMaster.Cells(wsMaster.Rows.Count, "A").End(xlUp).Row
+    
+    For i = 2 To lastRow
+        ' 篩選條件：Z欄(26) = 待處理 且 Y欄(25) 有日期
+        If Trim(wsMaster.Cells(i, 26).Value) = "待處理" And wsMaster.Cells(i, 25).Value <> "" Then
+            
+            ' 填入基本資料
+            wsRep.Cells(rRow, 1).Value = wsMaster.Cells(i, 1).Value   ' A 員編
+            wsRep.Cells(rRow, 2).Value = wsMaster.Cells(i, 2).Value   ' B 姓名
+            wsRep.Cells(rRow, 3).Value = wsMaster.Cells(i, 5).Value   ' C 入職日期 (大表第 5 欄)
+            wsRep.Cells(rRow, 4).Value = wsMaster.Cells(i, 7).Value   ' D 部門 (大表第 7 欄)
+            
+            ' 需求 2：Operator 判斷 (E 欄)
+            If InStr(1, wsMaster.Cells(i, 10).Value, "operator", vbTextCompare) > 0 Then
+                wsRep.Cells(rRow, 5).Value = "V"
+            Else
+                wsRep.Cells(rRow, 5).Value = "X"
+            End If
+            wsRep.Cells(rRow, 5).HorizontalAlignment = xlCenter
+            
+            wsRep.Cells(rRow, 6).Value = wsMaster.Cells(i, 33).Value  ' F 工作地點 (大表第 33 欄站點)
+            wsRep.Cells(rRow, 7).Value = wsMaster.Cells(i, 11).Value  ' G 離職日期 (大表第 11 欄)
+            
+            ' 需求 1：當有離職日期，標示螢光色 (整列黃底)
+            If wsMaster.Cells(i, 11).Value <> "" Then
+                wsRep.Range("A" & rRow & ":H" & rRow).Interior.Color = vbYellow
+            End If
+            
+            ' 需求 3：堆高機證照備註 (H 欄)
+            ' 大表第 27 欄為堆高機證照
+            If wsMaster.Cells(i, 27).Value = "有" Then
+                wsRep.Cells(rRow, 8).Value = "堆高機證照"
+                wsRep.Cells(rRow, 8).Font.Color = RGB(200, 0, 0) ' 深紅色字體較醒目
+            End If
+
+            ' 標記已處理：更新大表狀態
+            wsMaster.Cells(i, 26).Value = "已發送"
+            
+            ' 畫格線
+            wsRep.Range("A" & rRow & ":H" & rRow).Borders.LineStyle = xlContinuous
+            
+            rRow = rRow + 1
+        End If
+    Next i
+
+    ' 5. 最後修飾
+    wsRep.Columns("A:H").AutoFit
+    wsRep.Columns("E").ColumnWidth = 10 ' 稍微加寬 operator 欄位
+    
+    Application.ScreenUpdating = True
+    MsgBox "報表已依照圖面格式產出完成！", vbInformation
+End Sub
+

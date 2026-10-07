@@ -1,75 +1,75 @@
 Attribute VB_Name = "Module2"
-Sub SyncStaffList()
-    Dim wsMaster As Worksheet, wsDown As Worksheet
-    Dim lastRowDown As Long, lastRowMaster As Long
-    Dim i As Long, matchRow As Variant
-    Dim newCount As Integer, updateCount As Integer
-    Dim col As Integer
+Sub SyncStaffLit()
+    Dim wMater A Workheet, wDown A Workheet
+    Dim latRowDown A Long, latRowMater A Long
+    Dim i A Long, matchRow A Variant
+    Dim newCount A Integer, updateCount A Integer
+    Dim col A Integer
     
-    ' --- ¨¾§b¸ß°İ ---
-    If MsgBox("½T©w¶×¤J¦W³æ¡H" & vbCrLf & "¦¹ª©¥»±N¦Û°Ê¦P¨B¸ê®Æ¨Ã¸É»ô AH Äæ«á¥|½X±Æ§Ç¤½¦¡¡C", vbQuestion + vbYesNo, "¦P¨B½T»{") = vbNo Then Exit Sub
+    ' --- é˜²å‘†è©¢å• ---
+    If MgBox("ç¢ºå®šåŒ¯å…¥åå–®ï¼Ÿ" & vbCrLf & "æ­¤ç‰ˆæœ¬å°‡è‡ªå‹•åŒæ­¥è³‡æ–™ä¸¦è£œé½Š AH æ¬„å¾Œå››ç¢¼æ’åºå…¬å¼ã€‚", vbQuetion + vbYeNo, "åŒæ­¥ç¢ºèª") = vbNo Then Exit Sub
     
-    If Sheets("Download").Cells(Rows.Count, "A").End(xlUp).Row < 2 Then
-        MsgBox "Download ¤u§@ªí¨S¦³¸ê®Æ¡A½Ğ¶K¤J¦W³æ«á¦A°õ¦æ¡I", vbExclamation, "¿ù»~"
+    If Sheet("Download").Cell(Row.Count, "A").End(xlUp).Row < 2 Then
+        MgBox "Download å·¥ä½œè¡¨æ²’æœ‰è³‡æ–™ï¼Œè«‹è²¼å…¥åå–®å¾Œå†åŸ·è¡Œï¼", vbExclamation, "éŒ¯èª¤"
         Exit Sub
     End If
 
-    Set wsMaster = Sheets("StaffTable")
-    Set wsDown = Sheets("Download")
+    Set wMater = Sheet("StaffTable")
+    Set wDown = Sheet("Download")
     newCount = 0
     updateCount = 0
     
     With Application
-        .ScreenUpdating = False
+        .ScreenUpdating = Fale
         .Calculation = xlCalculationManual
-        .EnableEvents = False
+        .EnableEvent = Fale
     End With
 
     On Error GoTo ErrorHandler
 
-    lastRowDown = wsDown.Cells(wsDown.Rows.Count, "A").End(xlUp).Row
+    latRowDown = wDown.Cell(wDown.Row.Count, "A").End(xlUp).Row
     
-    For i = 2 To lastRowDown
-        matchRow = Application.Match(wsDown.Cells(i, "A").Value, wsMaster.Columns("A"), 0)
+    For i = 2 To latRowDown
+        matchRow = Application.Match(wDown.Cell(i, "A").Value, wMater.Column("A"), 0)
         
-        If IsError(matchRow) Then
+        If IError(matchRow) Then
             ' =================================================================
-            ' --- A. ³B²z·s¶i­û¤u ---
+            ' --- A. è™•ç†æ–°é€²å“¡å·¥ ---
             ' =================================================================
             lastRowMaster = wsMaster.Cells(wsMaster.Rows.Count, "A").End(xlUp).Row + 1
             
-            ' 1. ·h¹B Download ªº A~K (1~11Äæ)
+            ' 1. æ¬é‹ Download çš„ A~K (1~11æ¬„)
             For col = 1 To 11
                 wsMaster.Cells(lastRowMaster, col).Value = wsDown.Cells(i, col).Value
             Next col
             
-            ' 2. ¦Û°Ê§PÂ_ L Äæ (¦bÂ¾ª¬ºA)
+            ' 2. è‡ªå‹•åˆ¤æ–· L æ¬„ (åœ¨è·ç‹€æ…‹)
             If wsDown.Cells(i, 11).Value <> "" Then
-                wsMaster.Cells(lastRowMaster, 12).Value = "Â÷Â¾"
+                wsMaster.Cells(lastRowMaster, 12).Value = "é›¢è·"
             Else
-                wsMaster.Cells(lastRowMaster, 12).Value = "¦bÂ¾"
+                wsMaster.Cells(lastRowMaster, 12).Value = "åœ¨è·"
             End If
             
-            ' 3. ªì©l¤Æ¡u¥¼¥æ¡v (M~R, U~X, AB~AE)
-            wsMaster.Range("M" & lastRowMaster & ":R" & lastRowMaster).Value = "¥¼¥æ"
-            wsMaster.Range("U" & lastRowMaster & ":X" & lastRowMaster).Value = "¥¼¥æ"
-            wsMaster.Range("AB" & lastRowMaster & ":AE" & lastRowMaster).Value = "¥¼¥æ"
+            ' 3. åˆå§‹åŒ–ã€Œæœªäº¤ã€ (M~R, U~X, AB~AE)
+            wsMaster.Range("M" & lastRowMaster & ":R" & lastRowMaster).Value = "æœªäº¤"
+            wsMaster.Range("U" & lastRowMaster & ":X" & lastRowMaster).Value = "æœªäº¤"
+            wsMaster.Range("AB" & lastRowMaster & ":AE" & lastRowMaster).Value = "æœªäº¤"
             
-            ' 4. ªì©l¤Æ¡u«İ³B²z¡v (T, Z)
-            wsMaster.Cells(lastRowMaster, "T").Value = "«İ³B²z"
-            wsMaster.Cells(lastRowMaster, "Z").Value = "«İ³B²z"
+            ' 4. åˆå§‹åŒ–ã€Œå¾…è™•ç†ã€ (T, Z)
+            wsMaster.Cells(lastRowMaster, "T").Value = "å¾…è™•ç†"
+            wsMaster.Cells(lastRowMaster, "Z").Value = "å¾…è™•ç†"
             
-            ' 5. ²MªÅ¤é´Á»PÃÒ·ÓÄæ¦ì (S, Y, AA)
+            ' 5. æ¸…ç©ºæ—¥æœŸèˆ‡è­‰ç…§æ¬„ä½ (S, Y, AA)
             wsMaster.Cells(lastRowMaster, "S").ClearContents
             wsMaster.Cells(lastRowMaster, "Y").ClearContents
             wsMaster.Cells(lastRowMaster, "AA").ClearContents
             
-            ' 6. §¹¬ü«ş¨©¤½¦¡ (AF ¤JÂ¾¦X³W, AG ¯¸ÂI, AH ­û½s«á¥|½X±Æ§Ç)
+            ' 6. å®Œç¾æ‹·è²å…¬å¼ (AF å…¥è·åˆè¦, AG ç«™é», AH å“¡ç·¨å¾Œå››ç¢¼æ’åº)
             wsMaster.Cells(2, "AF").Copy Destination:=wsMaster.Cells(lastRowMaster, "AF")
             wsMaster.Cells(2, "AG").Copy Destination:=wsMaster.Cells(lastRowMaster, "AG")
             wsMaster.Cells(2, "AH").Copy Destination:=wsMaster.Cells(lastRowMaster, "AH")
             
-            ' 7. ±j¨î©µÄò¡u¤U©Ô¿ï³æ»P®æ¦¡¡v (©µ¦ù¦Ü AH Äæ)
+            ' 7. å¼·åˆ¶å»¶çºŒã€Œä¸‹æ‹‰é¸å–®èˆ‡æ ¼å¼ã€ (å»¶ä¼¸è‡³ AH æ¬„)
             wsMaster.Rows(2).Copy
             wsMaster.Rows(lastRowMaster).PasteSpecial Paste:=xlPasteFormats
             
@@ -80,14 +80,14 @@ Sub SyncStaffList()
             newCount = newCount + 1
         Else
             ' =================================================================
-            ' --- B. ³B²z¦bÂ¾/ÂÂ­û¤u (¥u§ó·s F~K ÅÜ°Ê) ---
+            ' --- B. è™•ç†åœ¨è·/èˆŠå“¡å·¥ (åªæ›´æ–° F~K è®Šå‹•) ---
             ' =================================================================
             For col = 6 To 11
                 wsMaster.Cells(matchRow, col).Value = wsDown.Cells(i, col).Value
             Next col
             
             If wsDown.Cells(i, 11).Value <> "" Then
-                wsMaster.Cells(matchRow, 12).Value = "Â÷Â¾"
+                wsMaster.Cells(matchRow, 12).Value = "é›¢è·"
             End If
             
             updateCount = updateCount + 1
@@ -103,12 +103,12 @@ ErrorHandler:
     End With
     
     If Err.Number = 0 Then
-        MsgBox "¦P¨B¦W³æ§¹¦¨¡I" & vbCrLf & _
+        MsgBox "åŒæ­¥åå–®å®Œæˆï¼" & vbCrLf & _
                "--------------------------" & vbCrLf & _
-               "·s¶i¤H­û¡G" & newCount & " µ§ (±Æ§Ç¤½¦¡¤w¦Û°Ê©µÄò)" & vbCrLf & _
-               "¸ê®Æ§ó·s¡G" & updateCount & " µ§ (¶È§ó·s­Ó¤H¸ê°T)", vbInformation
+               "æ–°é€²äººå“¡ï¼š" & newCount & " ç­† (æ’åºå…¬å¼å·²è‡ªå‹•å»¶çºŒ)" & vbCrLf & _
+               "è³‡æ–™æ›´æ–°ï¼š" & updateCount & " ç­† (åƒ…æ›´æ–°å€‹äººè³‡è¨Š)", vbInformation
     Else
-        MsgBox "¦P¨B¹Lµ{¤¤µo¥Í¿ù»~: " & Err.Description, vbCritical
+        MsgBox "åŒæ­¥éç¨‹ä¸­ç™¼ç”ŸéŒ¯èª¤: " & Err.Description, vbCritical
     End If
 End Sub
 

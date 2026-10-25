@@ -23,4 +23,4 @@ Explore my case studies below. Each module contains a detailed design journey, b
 
 
 ---
-📫 **Connect with me:** [My LinkedIn Profile](https://www.linkedin.com/in/nick-chen-66a43a2a3)
+📫 **Connect with me:** [My LinkedIn Profile](https://www.linkedin.com/in/nickchen399)
